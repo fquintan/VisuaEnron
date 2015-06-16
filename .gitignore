@@ -1,3 +1,6 @@
+#No subir los mails
+enron_mail_20110402/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

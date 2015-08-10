@@ -10,12 +10,16 @@ def print_to_err(*objs):
 	
 def jsonify(emails):
 	json = '['
-	punctuation_map = string.maketrans(string.punctuation, ' '*len(string.punctuation))
+	punctuation_map = string.maketrans(string.punctuation+'\n\r\t', ' '*(len(string.punctuation)+3))
 	for email in emails:
 		json += '{'
 		json += '\"text\":\"' + email['text'].translate(punctuation_map).strip() + '\",'
 		json += '\"date\":\"' + str(email['date']) + '\"'
-		json += '},\n'
+		if(email == emails[-1]):
+			json += '}\n'
+		else:
+			json += '},\n'
+			
 	return json + ']'
 	
 def load_enron_emails(folder=''):
@@ -23,7 +27,7 @@ def load_enron_emails(folder=''):
 	# reader = EmailWalker(localdir+folder)
 	reader = EmailWalker(folder)
 	count_mails = 0	
-	punctuation_map = string.maketrans(string.punctuation, ' '*len(string.punctuation))
+	punctuation_map = string.maketrans(string.punctuation+'\n\r\t', ' '*(len(string.punctuation)+3))
 	res_strings = ['re:', 'fw:', 'fwd:']
 	threads = {}
 	for email in reader:
@@ -46,12 +50,12 @@ def load_enron_emails(folder=''):
 	#import operator
 	#sorted_dict = sorted(hist.items(), key=operator.itemgetter(1), reverse=True)
 	
-	out = open("threads_dated.json", "w")
-	out.write("data=[")
+	out = open("threads_dated_2.json", "w")
+	out.write("[")
 	for (k, v) in threads.iteritems():
-		out.write("{\"subject\":\"%s\", \"mails\":\"%s\", \"size\":%s},\n" % (k, jsonify(v), len(v)))
-	out.write("];")
+		out.write("{\"subject\":\"%s\", \"mails\":%s, \"size\":%s},\n" % (k, jsonify(v), len(v)))
+	out.write("]")
 	out.close()
 
-load_enron_emails('../../enron_mail_20110402 (1)/enron_mail_20110402/maildir')
+load_enron_emails('../enron_mail_20110402/maildir')
 

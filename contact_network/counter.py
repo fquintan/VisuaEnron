@@ -73,6 +73,8 @@ links = [ { \
           "value": v } \
           for k, v in connections.iteritems() ]
 
+print [v for k, v in connections.iteritems() ]
+exit()
 with args.out_file as out_file:
 
         if args.pretty:

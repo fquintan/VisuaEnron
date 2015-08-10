@@ -4,6 +4,7 @@ import argparse as ap
 import os, sys
 import operator
 import sys
+import igraph as ig
 from collections import defaultdict
 
 get_group = lambda email: 1 if email.endswith("enron.com") else 2
@@ -20,11 +21,7 @@ parser.add_argument("-t", "--threshold", default=0, type=float, \
         help = "The minimum amount of mails to aggregate. Default is no " \
         "threshold at all.")
 
-parser.add_argument("-p", "--pretty", action="store_true", help = "Pretty print the "  \
-        "output file.")
 
-parser.add_argument("-o", "--out_file", type=ap.FileType("w"), default=sys.stdout, help = \
-    "The file to be output. If not specified, the standard output will be used.")
 
 args = parser.parse_args()
 connections = defaultdict(int)
@@ -53,39 +50,24 @@ with args.in_file as f:
             last_line = line
             count = 1
 
+
+
 names = sorted(list(set(map(operator.itemgetter(0), connections.keys())) | \
                  set(map(operator.itemgetter(1), connections.keys()))))
 
-names_indexes = { v: k for k, v in enumerate(names) }
+node_to_index = { v:k for (k,v) in enumerate(names) }
 
-nodes = [ { \
-          "name": names[i], \
-          "index": i, \
-          "group": get_group(names[i]), \
-          "color_value": 0, \
-          "size": 20 } \
-          for i in range(len(names)) ]
+edges = [ (node_to_index[v[0]], node_to_index[v[1]]) for v in connections.keys()
+    ]
 
+weights = [ 1.0/connections[(names[v[0]], names[v[1]])] for v in edges ]
 
-links = [ { \
-          "source": names_indexes[k[0]], \
-          "target": names_indexes[k[1]], \
-          "value": v } \
-          for k, v in connections.iteritems() ]
+g = ig.Graph(n = len(names), edges = edges, directed = True)
+g.es["weights"] = weights
 
-with args.out_file as out_file:
+tree = g.spanning_tree(weights=weights, return_tree = True)
 
-        if args.pretty:
-            out_file.write(json.dumps( {\
-                "max_count": max_count, \
-                "nodes" : nodes, \
-                "links" : links }, \
-                indent = 4, separators = (",",":")))
-        else:
-            out_file.write(json.dumps( { \
-                "max_count": max_count, \
-                "nodes" : nodes, \
-                "links" : links } ))
+ig.plot(g, layout=ig.Graph.layout_reingold_tilford(tree, root)
 
 
 

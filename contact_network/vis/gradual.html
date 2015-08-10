@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="stylesheet" href="./jquery-ui-1.11.4/jquery-ui.css">
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container centered">
+        <div class="row">
+            <div class="span4 collapse-group">
+                <center><h1>Vocabulary similarity graph for Chilean News Outlets
+                        in Twitter</h1>
+                </center>
+                <br/>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-3">
+            </div>
+            <div class="col-md-6">
+                <div class="row">
+                    <div class="col-md-6">
+                        Minimum vocabulary similarity:
+                    </div>
+                    <div class="col-md-6">
+                        <input type="range" id="slider"
+                                            name="points"
+                                            value = 100
+                                            min="0.0"
+                                            max="100"
+                                            step="1" /> 
+                        <center><span id="slider-label">100</span></center>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+            </div>
+        </div>
+        <div class="col-md-12 text-center" id="container">
+        </div>
+    </div>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="./jquery-ui-1.11.4/jquery-ui.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <style>
+    .vcenter {
+        display: inline-block;
+        vertical-align: middle;
+        float: none;
+    }
+    
+    .node {
+      stroke: #000000;
+      stroke-width: 0.5px;
+    }
+
+    .link {
+      stroke: #000000;
+      stroke-width: 1px;
+    }
+
+    </style>
+    <script src="js/d3.v3.js"></script>
+    <script>
+
+      $(function() {
+        
+        d3.json("graph.json", function(error, graph) {
+       
+          var width = 800,
+              height = 600;
+         
+        
+          var linkcolorpos = d3.scale.linear()
+          .domain([0,1])
+          .range(["gray", "red"]);
+
+          var nodes = [];
+          var links = [];
+
+          var force = d3.layout.force()
+              .charge(-100)
+              .gravity(0.4)
+              .linkDistance(30)
+              .size([width, height])
+              .nodes(nodes)
+              .links(links)
+              .on("tick", function() {
+                  link.attr("x1", function(d) { return d.source.x; })
+                      .attr("y1", function(d) { return d.source.y; })
+                      .attr("x2", function(d) { return d.target.x; })
+                      .attr("y2", function(d) { return d.target.y; });
+
+                  node.attr("cx", function(d) { return d.x; })
+                      .attr("cy", function(d) { return d.y; });
+              });
+
+                
+          var min_size = Infinity;
+          var max_size = -Infinity;
+
+          for (var i = 0; i < graph.nodes.length; i++) {
+              var node = graph.nodes[i];
+              if (node.size < min_size) {
+                  min_size = node.size;
+              }
+
+              if (node.size > max_size) {
+                  max_size = node.size;
+              }
+
+          }
+          var size = d3.scale.log()
+                    .domain([1000, max_size])
+                    .range([5, 5]).clamp([true, false]);
+
+          var svg = d3.select("#container").append("svg")
+              .attr("width", width)
+              .attr("height", height);
+          var node = svg.selectAll(".node");
+          var linksvg = svg.append("svg:g");
+          var link = linksvg.selectAll(".link");
+          var color = d3.scale.linear();
+
+          var markersvg = linksvg.append("svg");
+
+
+          markersvg.append("svg:defs").selectAll("marker")
+              .data(["medium"])
+              .enter().append("svg:marker")
+              .attr("id", String)
+              .attr("viewBox", "0 -5 10 10")
+              .attr("refX", 20)
+              .attr("refY", -1.5)
+              .attr("markerWidth", 6)
+              .attr("markerHeight", 6)
+              .attr("orient", "auto")
+              .attr("markerUnits", "userSpaceOnUse")
+              .append("svg:path")
+              .attr("d", "M0,-5L10,0L0,5 z")
+              .attr("fill", "#FFFFFF")
+              .attr("stroke", "#000")
+          
+
+
+          var update = function() {
+
+              var max_degree = -Infinity;
+              for (var i = 0; i < graph.nodes.length; i++) {
+                if (graph.nodes[i].color_value > max_degree) {
+                    max_degree = graph.nodes[i].color_value;
+                }
+              }
+             
+              color.domain([0, max_degree])
+                  .range(["white", "black"]);
+
+              node = node.data(force.nodes(), function (d) { return d.id; });
+
+              node.enter().append("circle")
+                  .attr("class", function (d) { return "node " + d.id; })
+                  .attr("r", function(d) { return size(0); })
+                  .call(force.drag);
+
+              node.insert("title")
+                  .text(function(d) { return d.name });
+              node.exit().remove();
+
+
+              node.style("fill", function(d) { return color(1); })
+              .call(force.drag);
+              link = link.data(force.links(),
+                      function(d) { return d.source.id + "-" +
+                          d.target.id; });
+              link.enter().append("line", ".node")
+                  .attr("class", "link")
+                  .style("stroke", function(d) { return linkcolorpos(d.value);})
+                  .attr("marker-end", function(d) { return "url(#medium)"});
+
+              link.insert("title")
+                  .text(function(d)  { return "Similarity " + 
+                      d.source.name + " - " + d.target.name + ": " + d.value; });
+              link.exit().remove();
+
+              var arrowHeads = linksvg.selectAll("polygon.arrowHeads")
+                  .data(force.links())
+                  .enter().append("polygon")
+                  .attr("id", function(d, i) {return "arrowHead0" +
+                      i})
+                  .attr("points", function(d, i) {
+                      //function here that outputs the
+                      //three points of a triangle
+                  })
+              ;
+
+              force.start();
+          }
+
+          // Add and remove elements on the graph object
+          function markNode(id) {
+              for (var i = 0; i < graph.nodes.length; i++) {
+                  if (graph.nodes[i].index === id) {
+                    graph.nodes[i].is_added = true;
+                    break;
+                  }
+              }
+          };
+
+
+          // Add and remove elements on the graph object
+          function addNode(id) {
+
+              var node_name;
+
+              for (var i = 0; i < graph.nodes.length; i++) {
+                  if (graph.nodes[i].index === id) {
+                    node_name = graph.nodes[i].name;
+                    break;
+                  }
+              }
+
+              nodes.push({"id": id, "name":node_name, link_count : 0, "x": 400,
+            "y": 300});
+          };
+
+          function removeNode(id) {
+            var idx = findNodeIndex(id);
+            if (idx >= 0) {
+                nodes.splice(idx, 1);
+            }
+          };
+
+          function removeLink(source, target) {
+              for (var i = 0; i < links.length; i++) {
+                  if (links[i].source.id == source && links[i].target.id == target) {
+                      links.splice(i, 1);
+                      break;
+                  }
+              }
+          };
+
+          function removeAllLinks() {
+              links.splice(0, links.length);
+          };
+
+          function removeAllNodes() {
+              nodes.splice(0, links.length);
+          };
+
+          function addLink(source, target, value) {
+              var sourceNode = findOrAddNode(source);
+              var targetNode = findOrAddNode(target);
+              sourceNode.link_count += 1;
+              targetNode.link_count += 1;
+              links.push({"source": sourceNode, "target": targetNode, "value": value});
+          };
+
+          function findNode(id) {
+              for (var i in nodes) {
+                  if (nodes[i]["id"] === id) return nodes[i];
+              }
+              ;
+          };
+          function findOrAddNode(id) {
+              for (var i in nodes) {
+                  if (nodes[i]["id"] === id) return nodes[i];
+              }
+              addNode(id);
+              for (var i in nodes) {
+                  if (nodes[i]["id"] === id) return nodes[i];
+              }
+
+          };
+
+
+          function cleanNodes() {
+            for (var i in graph.nodes) {
+                
+                if (!graph.nodes[i].is_added) {
+                    removeNode(graph.nodes[i].index)
+                }
+            }
+          }
+          function findNodeIndex(id) {
+              for (var i = 0; i < nodes.length; i++) {
+                  if (nodes[i].id == id) {
+                      return i;
+                  }
+              }
+              return -1;
+          };
+
+          var slider = $("#slider");
+
+          function threshold() {
+              var thresh = parseFloat(slider.val());
+              removeAllLinks();
+              for (var i = 0; i < graph.nodes.length; i++) {
+                  graph.nodes[i].is_added = false;
+              }
+
+
+              for (var i = 0; i < graph.links.length; i++) {
+                  var link = graph.links[i];
+                  if (link.value >= thresh) {
+                      graph.nodes[link.source].color_value += 1;
+                      graph.nodes[link.target].color_value += 1;
+                      markNode(link.source);
+                      markNode(link.target);
+                      addLink(link.source, link.target, link.value);
+
+                  }
+              }
+
+              cleanNodes();
+
+              update();
+          }
+
+          slider.on("change input", function() {
+              $("#slider-label").text(parseFloat(slider.val()));
+              threshold()
+          });
+
+          threshold();
+
+
+        });
+
+      });
+    </script>
+
+</body>
+</html>
